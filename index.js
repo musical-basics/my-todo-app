@@ -23,8 +23,36 @@ app.post('/tasks', async (req, res) => {
 });
 
 app.get('/tasks', async (req, res) => {
-    const tasks = await Task.find();
+    const tasks = await Task.find().sort('order');
     res.send(tasks);
+});
+
+// app.put('/tasks/reorder', async (req, res) => {
+//     console.log("Received reorder request:", req.body); // Log incoming data
+//     res.send({ message: 'Endpoint hit' });
+// });
+
+app.put('/tasks/reorder', async (req, res) => {
+    try {
+        const newOrder = req.body;
+        console.log("Reorder request received:", newOrder); // Log incoming data
+
+        if (!Array.isArray(newOrder)) {
+            return res.status(400).send('Invalid request format');
+        }
+
+        for (let i = 0; i < newOrder.length; i++) {
+            if (!mongoose.Types.ObjectId.isValid(newOrder[i])) {
+                return res.status(400).send(`Invalid ObjectId: ${newOrder[i]}`);
+            }
+
+            await Task.findByIdAndUpdate(newOrder[i], { order: i });
+        }
+        res.send({ message: 'Tasks reordered successfully' });
+    } catch (error) {
+        console.error("Reorder error:", error);
+        res.status(500).send(error);
+    }
 });
 
 app.delete('/tasks/:id', async (req, res) => {
@@ -76,15 +104,25 @@ app.put('/tasks/uncomplete/:id', async (req, res) => {
     }
 });
 
-app.put('/tasks/reorder', async (req, res) => {
+
+
+
+
+
+
+// Test endpoint to update the order of a single task
+app.put('/tasks/updateOrder/:id', async (req, res) => {
+    const taskId = req.params.id;
+    const newOrder = req.body.order;
+
     try {
-        const newOrder = req.body;
-        for (let i = 0; i < newOrder.length; i++) {
-            await Task.findByIdAndUpdate(newOrder[i], { order: i });
+        const updatedTask = await Task.findByIdAndUpdate(taskId, { order: newOrder }, { new: true });
+        if (!updatedTask) {
+            return res.status(404).send('Task not found');
         }
-        res.send({ message: 'Tasks reordered successfully' });
+        res.send({ message: 'Task order updated successfully', updatedTask });
     } catch (error) {
-        console.error("Reorder error:", error);
+        console.error("Error updating task order:", error);
         res.status(500).send(error);
     }
 });
